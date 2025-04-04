@@ -15,6 +15,7 @@ add_subdirectory(src/module1)
 
 set(${PROJECT_NAME}_SOURCES
     src/manager.main.cpp
+    src/states/states.cpp
 )
 
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCES})
