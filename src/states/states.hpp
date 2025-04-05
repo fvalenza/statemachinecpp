@@ -48,7 +48,7 @@ public:
 
         if(stop_wait){
             std::cout << "Stopping effective of wait_and_pop" << std::endl;
-            stop_wait = false;
+            // stop_wait = false;
             return nullptr;
         }
 
@@ -107,8 +107,5 @@ public:
     void CommandHandler(Processor& processor, std::shared_ptr<MyMessage> msg) override {
         // Do nothing
     }
-    void execute(Processor& processor) override {
-        // Do nothing. and normally it should finish the execution in the main
-        std::cout << "Terminate state executed. Exiting..." << std::endl;
-    }
+    void execute(Processor& processor) override;
 };

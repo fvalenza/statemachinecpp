@@ -16,7 +16,7 @@ clean:
 
 gen_cmake *CMAKE_VARS:
     mkdir -p build && cd build && \
-    cmake -DCMAKE_INSTALL_PREFIX=~/root-filetree/devel/install {{CMAKE_VARS}} ..
+    cmake -DCMAKE_INSTALL_PREFIX=~/root-filetree/devel/install -DCMAKE_BUILD_TYPE=Debug {{CMAKE_VARS}} ..
 
 build TARGETS='all':
     cmake --build build/ --target {{TARGETS}}

@@ -44,6 +44,7 @@ int main() {
     std::thread listenerThread([&processor]() {
         processor.receiveMessage();
     });
+    std::cout << "[Main] Calling processor.start()" << std::endl;
     processor.start();
 
     // std::thread listenerThread(tcpListener, std::ref(processor));
@@ -56,6 +57,7 @@ int main() {
     //     std::cout << "[Main] Current State: " << processor.currentStateName() << std::endl;
     // }
 
+    std::cout << "[Main] Calling processor.stop()" << std::endl;
     processor.stop();
     listenerThread.join();
     return 0;
