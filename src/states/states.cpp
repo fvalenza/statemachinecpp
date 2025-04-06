@@ -58,8 +58,13 @@ void ActiveState::execute(Processor& processor) {
     std::cout << "[ActiveState] Waiting for message..." << std::endl;
     //TODO A message received too early still unlocks this wait
 
-    processor.setMessageFilter([](std::shared_ptr<MyMessage> msg) {
-        return msg->payload == "4";
+    // processor.setMessageFilter([](std::shared_ptr<MyMessage> msg) {
+    //     return msg->payload == "4";
+    // });
+
+    acceptedIDs_ = {4, 42, 77, 99};
+    processor.setMessageFilter([this](const std::shared_ptr<MyMessage>& msg) {
+        return acceptedIDs_.count(std::stoi(msg->payload)) > 0;
     });
 
     auto msg = processor.waitForMessage(); // Need split hpp/cpp files

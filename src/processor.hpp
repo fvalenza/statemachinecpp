@@ -10,6 +10,8 @@
 #define PORT 9090
 #define BUFFER_SIZE 1024
 
+using MessageFilter = std::function<bool(const std::shared_ptr<MyMessage>&)>;
+
 class Processor {
     MessageQueue<std::shared_ptr<MyMessage>> msgQueue;
     std::atomic<bool> running{true};
@@ -70,6 +72,7 @@ public:
         currentMessageFilter = nullptr;
     }
 
+    // WARN: This one accepts a single connection and then terminates as soon as the connection closes
     // void receiveMessage() {
     //     int server_fd, client_fd;
     //     struct sockaddr_in address;
