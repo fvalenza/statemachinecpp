@@ -56,6 +56,12 @@ void ActiveState::execute(Processor& processor) {
     }
     // Wait for a message in order to continue execution
     std::cout << "[ActiveState] Waiting for message..." << std::endl;
+    //TODO A message received too early still unlocks this wait
+
+    processor.setMessageFilter([](std::shared_ptr<MyMessage> msg) {
+        return msg->payload == "4";
+    });
+
     auto msg = processor.waitForMessage(); // Need split hpp/cpp files
     if (!msg) {
         std::cout << "[ActiveState] Interrupted during waitForMessage" << std::endl;
