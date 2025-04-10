@@ -22,3 +22,7 @@ void TransitionHandlerTemplated<ActiveState, terminateState>::handle(
 
 
 
+void registerAllTransitions() {
+    TransitionHandlerMapFunctions::registerTransition<IdleState, ActiveState>(transitionIdleToActive);
+    TransitionHandlerMapFunctions::registerTransition<ActiveState, terminateState>(transitionActiveToTerminate);
+}
