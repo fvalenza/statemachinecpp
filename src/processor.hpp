@@ -6,16 +6,28 @@
 #include <poll.h>
 
 #include "states/states.hpp"
+#include "states/transitionHandler.hpp"
 
 #define PORT 9090
 #define BUFFER_SIZE 1024
 
 using MessageFilter = std::function<bool(const std::shared_ptr<MyMessage>&)>;
 
+// https://rollbar.com/blog/cpp-custom-exceptions/
+class waitInterupted : public std::exception {
+    private:
+    std::string message;
+
+    public:
+    waitInterupted(std::string msg = "") : message(msg) {}
+    const char * what () const noexcept override {
+        return message.c_str();
+    }
+};
+
 class Processor {
     MessageQueue<std::shared_ptr<MyMessage>> msgQueue;
     std::atomic<bool> running{true};
-    std::atomic<bool> requestedStateChange{false};
     std::mutex stateMutex;
     std::shared_ptr<IState> currentState_;
     std::shared_ptr<IState> newState_;
@@ -29,13 +41,12 @@ public:
     }
 
 
-    bool isErrorMessage(std::shared_ptr<MyMessage> msg) {
-        return msg->payload == "error";
+    bool isGlobalMessage(std::shared_ptr<MyMessage> msg) {
+        return false;
     }
 
-    void handleError(std::shared_ptr<MyMessage> msg) {
-        std::cout << "[Error] " << msg->payload << std::endl;
-        //     changeState(std::make_shared<ErrorState>()); // or terminateState
+    void handleGlobal(std::shared_ptr<MyMessage> msg) {
+        std::cout << "[Global] " << msg->payload << std::endl;
     }
 
     void handleUnexpected(std::shared_ptr<MyMessage> msg) {
@@ -43,12 +54,11 @@ public:
     }
 
     void commandHandler(std::shared_ptr<MyMessage> msg) {
-        if (isErrorMessage(msg)) {
-            handleError(msg);
-        } else if (currentMessageFilter && currentMessageFilter(msg)) {
-            postMessage(msg);
+        if (msg->payload == "stop") {
+            std::cout << "[CommandHandler] Stop command received." << std::endl;
+            stop();
         } else {
-            handleUnexpected(msg);
+            postMessage(msg);
         }
     }
 
@@ -110,12 +120,7 @@ public:
                 std::cout << "Received message: " << receivedMessage << std::endl;
                 auto msg = std::make_shared<MyMessage>( receivedMessage);
 
-                if (msg->payload == "special") {
-                    handleSpecial(msg);
-                } else {
-                    commandHandler(msg);
-                    // postMessage(msg);
-                }
+                commandHandler(msg);
             }
 
             close(new_socket);  // Close client connection
@@ -129,78 +134,99 @@ public:
         currentState_ = std::make_shared<IdleState>();
         run();
     }
-    void execute() {
-        if (currentState_) {
-            currentState_->execute(*this);
-        }
+
+    template<typename FromState, typename ToState>
+    void handleTransition(std::shared_ptr<FromState> from, std::shared_ptr<ToState> to) {
+        std::cout << "[ASTSManager] Handling transition from " << from->name() << " to " << to->name() << std::endl;
+        // The next line only calls the generic version of the transition handler because it resolves into shared_ptr<IState>
+        TransitionHandler<FromState, ToState>::handle(from, to);
+        // The next line has error: no viable conversion from shared_ptr<Istate> to shared_ptr<IdleState>
+        TransitionHandler<IdleState, ActiveState>::handle(to, from);
     }
 
     void run() {
         std::cout << "[ASTSManager] FSM loop started.\n";
 
         while (running) {
-            // std::lock_guard<std::mutex> lock(stateMutex);
             std::cout << "[ASTSManager] Running loop" << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            if (requestedStateChange) {
+            if(newState_ != nullptr)
+            {
                 std::cout << "[ASTSManager] Change of state requested" << std::endl;
                 std::cout << " From " << (currentState_ ? currentState_->name() : "None")
-                          << " to " << (newState_ ? newState_->name() : "None") << std::endl;
+                            << " to " << newState_->name() << std::endl;
+                // This next line is not working due to template argument deduction and polymorphism, it will resolves into handleTransition<shared_ptr<IState>, shared_ptr<IState>>
+			    handleTransition(currentState_, newState_);
+                // The next line does not compile, i was adding it to test the template specialization
+                handleTransition<IdleState, ActiveState>(currentState_, newState_);
                 currentState_ = std::move(newState_);
                 newState_ = nullptr;
-                requestedStateChange = false;
-
-                if (currentState_) {
-                    std::cout << "[ASTSManager] Switched to state: " << currentState_->name() << std::endl;
-                }
+                std::cout << "[ASTSManager] Switched to state: " << currentState_->name() << std::endl;
             }
 
+
             if (currentState_) {
-                if (currentState_->name() == "terminateState") {
-                    running = false;
-                }
                 std::cout << "[ASTSManager] Executing state: " << currentState_->name() << std::endl;
-                currentState_->execute(*this);
+                try {
+                    currentState_->execute(*this);
+                } catch( const waitInterupted& e) {
+                    std::cout << "[ASTSManager] Exception caught: " << e.what() << std::endl;
+                    // Handle the exception, e.g., log it or change state
+                } catch (const std::exception& e) {
+                    std::cerr << "[ASTSManager] Exception: " << e.what() << std::endl;
+                    // Handle other exceptions
+                } catch (...) {
+                    std::cerr << "[ASTSManager] Unknown exception occurred." << std::endl;
+
+                }
             }
         }
 
         std::cout << "[ASTSManager] FSM loop terminated.\n";
+        stop();
     }
 
-    std::shared_ptr<MyMessage> waitForMessage() {
-        auto msg = msgQueue.wait_and_pop();
-        setMessageFilter(nullptr);
-        return msg;
+    std::shared_ptr<MyMessage> waitForMessage() noexcept(false) {
+        while(1)
+        {
+            auto msg = msgQueue.wait_and_pop();
+            if(msg == nullptr)
+            {
+                throw waitInterupted("FVA exception");   // cas ou on debloque un state pour pouvoir switcher d'etat
+            }
+            if (isGlobalMessage(msg)) {
+                handleGlobal(msg);
+            } else if (currentMessageFilter && currentMessageFilter(msg)) {
+                setMessageFilter(nullptr);
+                return msg;
+            } else {
+                handleUnexpected(msg);
+            }
+        }
     }
 
     void postMessage(std::shared_ptr<MyMessage> msg) {
         msgQueue.push(std::move(msg));
     }
 
-    void handleSpecial(std::shared_ptr<MyMessage> msg) {
-        std::cout << "[SPECIAL Immediate] " << msg->payload << std::endl;
-    }
-
 
     void changeState(std::shared_ptr<IState> newState) {
-        // std::lock_guard<std::mutex> lock(stateMutex);
         if (currentState_) {
             std::cout << "Changing state from " << currentState_->name()
                       << " to " << newState->name() << std::endl;
             currentState_->stop();
         }
 
-        requestedStateChange = true;
         newState_ = std::move(newState);
         std::cout << "State change requested to " << newState_->name() << std::endl;
     }
 
     std::string currentStateName() {
-        std::lock_guard<std::mutex> lock(stateMutex);
         return currentState_ ? currentState_->name() : "None";
     }
 
     void stop() {
+        std::cout << "[ASTSManager] Stopping statemachine" << std::endl;
         running = false;
         if (currentState_) currentState_->stop();
         msgQueue.stop();
@@ -208,6 +234,7 @@ public:
 
     void msgQueueStop() {
         msgQueue.stop();
+
     }
 };
 

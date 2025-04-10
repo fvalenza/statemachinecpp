@@ -23,11 +23,10 @@ class Processor; // forward declaration
 class IState {
 protected:
     std::atomic<bool> shouldStop{false};
-    std::unordered_set<int> acceptedIDs_;
+    std::unordered_set<int> acceptedIDs_; // CGU pourquoi c'est ici ?
 public:
     virtual std::string name() const = 0;
-    virtual void CommandHandler(Processor& processor, std::shared_ptr<MyMessage> msg) = 0;
-    virtual void execute(Processor& processor) = 0;
+    virtual void execute(Processor& processor) noexcept(false) = 0;
     virtual void stop() { shouldStop = true; }
     virtual ~IState() = default;
 };

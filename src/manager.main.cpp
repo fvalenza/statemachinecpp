@@ -15,8 +15,6 @@ int main() {
     std::cout << "[Main] Calling processor.start()" << std::endl;
     processor.start();
 
-    std::cout << "[Main] Calling processor.stop()" << std::endl;
-    processor.stop();
     listenerThread.join();
     return 0;
 }
