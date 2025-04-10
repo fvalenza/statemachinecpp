@@ -18,6 +18,7 @@ struct TransitionHandlerTemplated {
 // Rmq: can't make TransitionHandlerTemplated to work, so by default we may need this raw solution....
 // Rmq2: seems kind of logical that will need something at runtime as long as templates can't be resolved at compiletime due to polymorphism
 struct TransitionHandler {
+    // TODO a remplacer par shared_ptr<IState> et dynamic_ptr_cast si on fait cette solution
     static void handle(IState* from, IState* to) {
         std::cout << "[Dynamic cast Transition] From " << from->name() << " to " << to->name() << std::endl;
         // Here put a big "switch" sur la paire ??? DEGUEU......

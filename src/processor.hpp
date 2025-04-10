@@ -28,15 +28,11 @@ class waitInterupted : public std::exception {
 class Processor {
     MessageQueue<std::shared_ptr<MyMessage>> msgQueue;
     std::atomic<bool> running{true};
-    std::mutex stateMutex;
     std::shared_ptr<IState> currentState_;
     std::shared_ptr<IState> newState_;
-    std::function<bool(std::shared_ptr<MyMessage>)> currentMessageFilter = nullptr;
 
 public:
-    // Processor() : currentState_(std::make_shared<IdleState>()) {}
     Processor() {
-        // currentState_ = std::make_shared<IdleState>(); // initial state
         currentState_ = nullptr;
     }
 
@@ -54,20 +50,13 @@ public:
     }
 
     void commandHandler(std::shared_ptr<MyMessage> msg) {
-        if (msg->payload == "stop") {
+        if (msg->payload == "stop") { // SI on veut mettre des messages particuliers pour debug etc
             std::cout << "[CommandHandler] Stop command received." << std::endl;
             stop();
-        } else {
+        } else { // Sinon on les poste (classiquement) dans la queue pour depilement par un State consommateur
             postMessage(msg);
         }
-    }
-
-    void setMessageFilter(std::function<bool(std::shared_ptr<MyMessage>)> filter) {
-        currentMessageFilter = std::move(filter);
-    }
-
-    void clearMessageFilter() {
-        currentMessageFilter = nullptr;
+        // Version "non debug" serait juste le postMessage(msg)
     }
 
 
@@ -144,12 +133,9 @@ public:
         // TransitionHandler<IdleState, ActiveState>::handle(to, from);
     }
 
+    // Si on utilise cette solution, on peut directement appeler TransitionHanddler::handle dans run et supprimer cette fonction
     void handleTransition(std::shared_ptr<IState> from, std::shared_ptr<IState> to) {
-        std::cout << "[ASTSManager] Handling transition from " << from->name() << " to " << to->name() << std::endl;
-        // The next line only calls the generic version of the transition handler because it resolves into shared_ptr<IState>
         TransitionHandler::handle(from.get(), to.get());
-        // The next line has error: no viable conversion from shared_ptr<Istate> to shared_ptr<IdleState>
-        // TransitionHandler<IdleState, ActiveState>::handle(to, from);
     }
 
     void run() {
@@ -180,13 +166,6 @@ public:
                     currentState_->execute(*this);
                 } catch( const waitInterupted& e) {
                     std::cout << "[ASTSManager] Exception caught: " << e.what() << std::endl;
-                    // Handle the exception, e.g., log it or change state
-                } catch (const std::exception& e) {
-                    std::cerr << "[ASTSManager] Exception: " << e.what() << std::endl;
-                    // Handle other exceptions
-                } catch (...) {
-                    std::cerr << "[ASTSManager] Unknown exception occurred." << std::endl;
-
                 }
             }
         }
@@ -210,7 +189,6 @@ public:
             if (isGlobalMessage(msg)) {
                 handleGlobal(msg);
             } else if ( msgFilter(msg)) {
-                setMessageFilter(nullptr);
                 return msg;
             } else {
                 handleUnexpected(msg);
@@ -232,7 +210,6 @@ public:
             if (isGlobalMessage(msg)) {
                 handleGlobal(msg);
             } else if ( msgFilter(acceptedIDs, msg)) {
-                setMessageFilter(nullptr);
                 return msg;
             } else {
                 handleUnexpected(msg);
@@ -250,7 +227,6 @@ public:
             if (isGlobalMessage(msg)) {
                 handleGlobal(msg);
             } else if ( fn(msg)) {
-                setMessageFilter(nullptr);
                 return msg;
             } else {
                 handleUnexpected(msg);
