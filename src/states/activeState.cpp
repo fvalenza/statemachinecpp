@@ -14,21 +14,20 @@ void ActiveState::execute(Processor& processor) {
             return;
         }
     }
+
     // Wait for a message in order to continue execution
     std::cout << "[ActiveState] Waiting for message..." << std::endl;
-    //TODO A message received too early still unlocks this wait
+    // With new implementation of waitForMessage a message received too early is not bypassed by the reception thread as it is put in the message queue
 
-    // processor.setMessageFilter([](std::shared_ptr<MyMessage> msg) {
-    //     return msg->payload == "4";
-    // });
-
-    acceptedIDs_ = {4, 42, 77, 99};
-    processor.setMessageFilter([this](const std::shared_ptr<MyMessage>& msg) {
-        return acceptedIDs_.count(std::stoi(msg->payload)) > 0;
+    auto msgFilter = ([this](std::shared_ptr<MyMessage> msg) {
+        std::unordered_set<int> acceptedIDs = {4, 42, 77, 99};
+        return acceptedIDs.count(std::stoi(msg->payload)) > 0;
     });
 
-    auto msg = processor.waitForMessage(); // CGU ca serait bien de pouvoir mettre directement en parametre les id des messages que l'on veut pouvoir recevoir
-    
+    auto msg = processor.waitForMessage(); // Accept everything
+    // auto msg = processor.waitForMessage({4,5}); // Accept ids from a set
+    // auto msg = processor.waitForMessage(msgFilter); // Accept from a custom filter function
+
     std::cout << "[ActiveState] Received message : " << msg->payload << std::endl;
     // Continue execution processing the message
     processor.changeState(std::make_shared<terminateState>()); // Need split hpp/cpp files

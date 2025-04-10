@@ -196,6 +196,10 @@ public:
     }
 
     std::shared_ptr<MyMessage> waitForMessage() noexcept(false) {
+        auto msgFilter = ([this](std::shared_ptr<MyMessage> msg) {
+            return true;
+        });
+
         while(1)
         {
             auto msg = msgQueue.wait_and_pop();
@@ -205,7 +209,47 @@ public:
             }
             if (isGlobalMessage(msg)) {
                 handleGlobal(msg);
-            } else if (currentMessageFilter && currentMessageFilter(msg)) {
+            } else if ( msgFilter(msg)) {
+                setMessageFilter(nullptr);
+                return msg;
+            } else {
+                handleUnexpected(msg);
+            }
+        }
+    }
+    std::shared_ptr<MyMessage> waitForMessage(std::unordered_set<int> acceptedIDs) noexcept(false) {
+        auto msgFilter = ([this](std::unordered_set<int> acceptedIDs, std::shared_ptr<MyMessage> msg) {
+            return acceptedIDs.count(std::stoi(msg->payload)) > 0;
+        });
+
+        while(1)
+        {
+            auto msg = msgQueue.wait_and_pop();
+            if(msg == nullptr)
+            {
+                throw waitInterupted("FVA exception");   // cas ou on debloque un state pour pouvoir switcher d'etat
+            }
+            if (isGlobalMessage(msg)) {
+                handleGlobal(msg);
+            } else if ( msgFilter(acceptedIDs, msg)) {
+                setMessageFilter(nullptr);
+                return msg;
+            } else {
+                handleUnexpected(msg);
+            }
+        }
+    }
+    std::shared_ptr<MyMessage> waitForMessage(MessageFilter fn) noexcept(false) {
+        while(1)
+        {
+            auto msg = msgQueue.wait_and_pop();
+            if(msg == nullptr)
+            {
+                throw waitInterupted("FVA exception");   // cas ou on debloque un state pour pouvoir switcher d'etat
+            }
+            if (isGlobalMessage(msg)) {
+                handleGlobal(msg);
+            } else if ( fn(msg)) {
                 setMessageFilter(nullptr);
                 return msg;
             } else {
@@ -248,88 +292,3 @@ public:
 };
 
 
-    // WARN: This one accepts a single connection and then terminates as soon as the connection closes but do not block when finishing like the other one
-    // void receiveMessage() {
-    //     int server_fd, client_fd;
-    //     struct sockaddr_in address;
-    //     socklen_t addrlen = sizeof(address);
-    //     char buffer[BUFFER_SIZE] = {0};
-    //
-    //     // Create socket
-    //     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    //         perror("Socket failed");
-    //         exit(EXIT_FAILURE);
-    //     }
-    //
-    //     int opt = 1;
-    //     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
-    //
-    //     // Bind
-    //     address.sin_family = AF_INET;
-    //     address.sin_addr.s_addr = INADDR_ANY;
-    //     address.sin_port = htons(PORT);
-    //
-    //     if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-    //         perror("Bind failed");
-    //         exit(EXIT_FAILURE);
-    //     }
-    //
-    //     // Listen
-    //     if (listen(server_fd, 1) < 0) {
-    //         perror("Listen failed");
-    //         exit(EXIT_FAILURE);
-    //     }
-    //
-    //     std::cout << "Waiting for client to connect on port " << PORT << "...\n";
-    //
-    //     // Accept a single client
-    //     client_fd = accept(server_fd, (struct sockaddr*)&address, &addrlen);
-    //     if (client_fd < 0) {
-    //         perror("Accept failed");
-    //         close(server_fd);
-    //         return;
-    //     }
-    //
-    //     std::cout << "Client connected.\n";
-    //
-    //     struct pollfd pfd;
-    //     pfd.fd = client_fd;
-    //     pfd.events = POLLIN;
-    //
-    //     while (running) {
-    //         int ret = poll(&pfd, 1, 1000); // timeout = 1000ms
-    //
-    //         if (ret < 0) {
-    //             perror("poll failed");
-    //             break;
-    //         }
-    //
-    //         if (ret == 0) {
-    //             // Timeout: no data, loop again
-    //             continue;
-    //         }
-    //
-    //         if (pfd.revents & POLLIN) {
-    //             ssize_t valread = read(client_fd, buffer, BUFFER_SIZE - 1);
-    //             if (valread <= 0) {
-    //                 std::cout << "Client disconnected or read error.\n";
-    //                 break;
-    //             }
-    //
-    //             buffer[valread] = '\0';
-    //             std::string receivedMessage(buffer);
-    //             std::cout << "Received message: " << receivedMessage << std::endl;
-    //
-    //             auto msg = std::make_shared<MyMessage>(receivedMessage);
-    //             if (msg->payload == "special") {
-    //                 handleSpecial(msg);
-    //             } else {
-    //                 commandHandler(msg);
-    //             }
-    //         }
-    //     }
-    //
-    //     close(client_fd);
-    //     close(server_fd);
-    //     std::cout << "Receiver thread shutting down.\n";
-    // }

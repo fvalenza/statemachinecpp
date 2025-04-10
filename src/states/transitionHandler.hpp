@@ -19,7 +19,7 @@ struct TransitionHandlerTemplated {
 // Rmq2: seems kind of logical that will need something at runtime as long as templates can't be resolved at compiletime due to polymorphism
 struct TransitionHandler {
     static void handle(IState* from, IState* to) {
-        std::cout << "[Generic Transition] From " << from->name() << " to " << to->name() << std::endl;
+        std::cout << "[Dynamic cast Transition] From " << from->name() << " to " << to->name() << std::endl;
         // Here put a big "switch" sur la paire ??? DEGUEU......
         // Or use a map to store the transitions
         // Or use a function pointer to call the right transition
