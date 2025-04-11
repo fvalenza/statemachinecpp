@@ -6,7 +6,6 @@
 #include <poll.h>
 
 #include "states/states.hpp"
-#include "states/transitionHandler.hpp"
 
 #define PORT 9090
 #define BUFFER_SIZE 1024
@@ -119,24 +118,11 @@ public:
     }
 
     void start() {
-        std::cout << "[ASTSManager] Starting in Idle State...\n";
-        currentState_ = std::make_shared<IdleState>();
+        std::cout << "[ASTSManager] Starting in Init State...\n";
+        currentState_ = std::make_shared<ATEInitState>();
         run();
     }
 
-    template<typename FromState, typename ToState>
-    void handleTransitionTemplated(std::shared_ptr<FromState> from, std::shared_ptr<ToState> to) {
-        std::cout << "[ASTSManager] Handling transition from " << from->name() << " to " << to->name() << std::endl;
-        // The next line only calls the generic version of the transition handler because it resolves into shared_ptr<IState>
-        TransitionHandlerTemplated<FromState, ToState>::handle(from.get(), to.get());
-        // The next line has error: no viable conversion from shared_ptr<Istate> to shared_ptr<IdleState>
-        // TransitionHandler<IdleState, ActiveState>::handle(to, from);
-    }
-
-    // Si on utilise cette solution, on peut directement appeler TransitionHanddler::handle dans run et supprimer cette fonction
-    void handleTransition(std::shared_ptr<IState> from, std::shared_ptr<IState> to) {
-        TransitionHandler::handle(from.get(), to.get());
-    }
 
     void run() {
         std::cout << "[ASTSManager] FSM loop started.\n";
@@ -149,11 +135,6 @@ public:
                 std::cout << "[ASTSManager] Change of state requested" << std::endl;
                 std::cout << " From " << (currentState_ ? currentState_->name() : "None")
                             << " to " << newState_->name() << std::endl;
-                // This next line is not working due to template argument deduction and polymorphism, it will resolves into handleTransition<shared_ptr<IState>, shared_ptr<IState>>
-                handleTransition(currentState_, newState_);
-			    handleTransitionTemplated(currentState_, newState_);
-                // The next line does not compile, i was adding it to test the template specialization
-                // handleTransitionTemplated<IdleState, ActiveState>(currentState_, newState_);
                 currentState_ = std::move(newState_);
                 newState_ = nullptr;
                 std::cout << "[ASTSManager] Switched to state: " << currentState_->name() << std::endl;

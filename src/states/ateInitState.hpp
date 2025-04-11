@@ -4,11 +4,10 @@
 #include <string>
 #include "baseState.hpp"
 
-
-class ActiveState : public IState {
+class ATEInitState : public IState {
 public:
     // void handleMessage(Processor& context, std::shared_ptr<MyMessage> msg) override;
-    std::string name() const override { return "Active"; }
+    std::string name() const override { return "Idle"; }
     void execute(Processor& processor) override;
-    void handleTransitionT1(Processor& processor);
+    void transitionT1ToIdle(Processor& processor);
 };

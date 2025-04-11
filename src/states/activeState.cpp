@@ -2,6 +2,13 @@
 #include "activeState.hpp"
 #include "processor.hpp"
 
+void ActiveState::handleTransitionT1(Processor& processor) {
+    //actions
+
+    //
+    processor.changeState(std::make_shared<terminateState>()); // Need split hpp/cpp files
+}
+
 void ActiveState::execute(Processor& processor) {
     std::cout << "[ActiveState] Start of execute.\n";
     // Do some stuff
@@ -24,13 +31,14 @@ void ActiveState::execute(Processor& processor) {
         return acceptedIDs.count(std::stoi(msg->payload)) > 0;
     });
 
-    auto msg = processor.waitForMessage(); // Accept everything
-    // auto msg = processor.waitForMessage({4,5}); // Accept ids from a set
+    // auto msg = processor.waitForMessage(); // Accept everything
+    auto msg = processor.waitForMessage({4,5}); // Accept ids from a set
     // auto msg = processor.waitForMessage(msgFilter); // Accept from a custom filter function
 
     std::cout << "[ActiveState] Received message : " << msg->payload << std::endl;
     // Continue execution processing the message
-    processor.changeState(std::make_shared<terminateState>()); // Need split hpp/cpp files
+    handleTransitionT1(processor);
+    return;
     // processor.changeState(std::make_shared<IdleState>()); // Need split hpp/cpp files
     std::cout << "[ActiveState] execute terminated." << std::endl;
 

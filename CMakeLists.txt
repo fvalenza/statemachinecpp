@@ -13,10 +13,11 @@ include(cmake/documentation.cmake)
 
 set(${PROJECT_NAME}_SOURCES
     src/manager.main.cpp
+    src/states/ateInitState.cpp
+    src/states/ateIdleState.cpp
     src/states/idleState.cpp
     src/states/activeState.cpp
     src/states/terminateState.cpp
-    src/states/transitionHandler.cpp
 )
 
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SOURCES})
